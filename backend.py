@@ -1,70 +1,48 @@
 import tkinter as tk
 from tkinter import filedialog
 import os
+import re
 
 def selecionar_arquivo_windows():
-    """Abre a janela nativa do Windows para o utilizador escolher o ficheiro"""
     root = tk.Tk()
-    root.withdraw() # Oculta a janela principal
-    
-    # CORREÇÃO 1: Força a janela a aparecer por cima (evita que fique escondida atrás do VS Code)
+    root.withdraw() 
     root.attributes('-topmost', True)
-    
     print("⚙️ BACKEND: A aguardar seleção do ficheiro TXT...")
     caminho_arquivo = filedialog.askopenfilename(
         title="Selecione o log do Switch (.txt)",
         filetypes=[("Ficheiros de Texto", "*.txt"), ("Todos os Ficheiros", "*.*")]
     )
-    
-    # CORREÇÃO 2: Destrói a janela oculta para o programa não ficar bloqueado (congelado) em segundo plano
     root.destroy()
-    
     return caminho_arquivo
 
-def identificar_marca_switch(linhas):
-    """Analisa o começo do ficheiro para descobrir a marca"""
-    for linha in linhas[:20]:
-        if "Legend: Mac Address" in linha or "-------+-------------------+" in linha:
-            return "ALCATEL"
-        
-        # Substitua pela palavra-chave real que aparece no cabeçalho da Intelbras
-        elif "PALAVRA_CHAVE_INTELBRAS" in linha: 
-            return "INTELBRAS"
-            
-    return "DESCONHECIDO"
-
-def ler_padrao_alcatel(linhas):
-    """Régua de Corte para Alcatel"""
+def ler_dados_de_qualquer_switch(linhas):
     dados = []
+    macs_vistos = set() # 🟢 CORREÇÃO 1: Impede que MACs repetidos quebrem o frontend!
+    
+    # 🟢 CORREÇÃO 2: Padrão turbinado! Apanha formatos como:
+    # 00:11:22:33:44:55 | 00-11-22-33-44-55 | 0011.2233.4455 | 0011-2233-4455
+    padrao_mac = re.compile(r'(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}|(?:[0-9A-Fa-f]{4}[.-]){2}[0-9A-Fa-f]{4}')
+    
     for linha in linhas:
-        partes = linha.split() 
-        if len(partes) >= 5 and ':' in partes[1]:
-            vlan = partes[0]
-            mac = partes[1].upper() 
-            porta = partes[-1]      
-            if '/' in porta or any(char.isdigit() for char in porta):
+        mac_encontrado = padrao_mac.search(linha)
+        
+        if mac_encontrado:
+            partes = linha.split()
+            mac = mac_encontrado.group().upper()
+            
+            # Só adicionamos se o dispositivo ainda não existir na nossa lista
+            if mac not in macs_vistos:
+                macs_vistos.add(mac)
+                
+                # Prevenção extra caso a linha de log não tenha a porta no fim
+                porta = partes[-1] if len(partes) > 1 else "Desconhecida"
+                vlan = partes[0] if partes[0].isdigit() else "N/A"
+                
                 dados.append({'VLAN': vlan, 'MAC': mac, 'Porta': porta})
-    return dados
-
-def ler_padrao_intelbras(linhas):
-    """Régua de Corte Genérica para Intelbras"""
-    dados = []
-    for linha in linhas:
-        partes = linha.split() 
-        
-        # Verifica se a linha tem informações suficientes e se parece um MAC
-        if len(partes) >= 3 and ('-' in partes[0] or ':' in partes[0]):
-            # Adapta as posições [0], [1], [-1] consoante o teu log real da Intelbras
-            mac = partes[0].upper() 
-            vlan = partes[1]        
-            porta = partes[-1]      
-            
-            dados.append({'VLAN': vlan, 'MAC': mac, 'Porta': porta})
-            
+                
     return dados
 
 def extrair_dados_switch():
-    """Gere todo o processo de extração e devolve os dados limpos."""
     caminho_arquivo = selecionar_arquivo_windows()
     
     if not caminho_arquivo: 
@@ -76,31 +54,24 @@ def extrair_dados_switch():
     
     dados_mapeados = []
     try:
-        # CORREÇÃO 3: errors='replace' evita que o programa dê erro caso o TXT tenha caracteres especiais estranhos
         with open(caminho_arquivo, 'r', encoding='utf-8', errors='replace') as arquivo:
             linhas = arquivo.readlines()
+            dados_mapeados = ler_dados_de_qualquer_switch(linhas)
             
-            marca = identificar_marca_switch(linhas)
-            print(f"⚙️ BACKEND: Marca detetada -> {marca}")
-            
-            if marca == "ALCATEL":
-                dados_mapeados = ler_padrao_alcatel(linhas)
-            elif marca == "INTELBRAS":
-                dados_mapeados = ler_padrao_intelbras(linhas)
-            else:
-                print("❌ BACKEND Erro: Formato não reconhecido. Certifique-se de que é um log do Alcatel ou Intelbras.")
-                return None
-                
     except Exception as erro:
         print(f"❌ BACKEND Erro crítico ao processar o ficheiro: {erro}")
         return None
         
-    print(f"⚙️ BACKEND: Sucesso! {len(dados_mapeados)} dispositivos encontrados.")
+    if not dados_mapeados:
+        print("⚠️ BACKEND: Nenhum dispositivo/MAC encontrado neste ficheiro.")
+        return None
+
+    print(f"⚙️ BACKEND: Sucesso! {len(dados_mapeados)} dispositivos únicos detetados.")
     return dados_mapeados
 
-# Bloco de Teste: Permite testar o backend clicando no "Play" apenas neste ficheiro
 if __name__ == "__main__":
     resultado = extrair_dados_switch()
     if resultado:
-        print("Primeiros 3 resultados extraídos para teste:")
-        print(resultado[:3])
+        print("\n--- Primeiros 5 resultados extraídos para teste ---")
+        for item in resultado[:5]:
+            print(item)
