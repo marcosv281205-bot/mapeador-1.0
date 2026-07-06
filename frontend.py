@@ -3,329 +3,486 @@ import webbrowser
 import os
 import json
 
-def preparar_dados_visjs(dados_limpos):
+def gerar_html():
+    dados = backend.extrair_dados_rede()
+    
+    if not dados:
+        print("❌ Nenhum dado retornado.")
+        html_erro = """<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Erro</title></head>
+<body style="background:#0a111f;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;">
+<div style="text-align:center;"><h1>⚠️ Nenhum dado processado</h1><p>Selecione arquivos .txt válidos.</p></div>
+</body></html>"""
+        caminho = os.path.abspath('topologia.html')
+        with open(caminho, 'w', encoding='utf-8') as f:
+            f.write(html_erro)
+        webbrowser.open(f'file://{caminho}')
+        return
+
     nodes = []
     edges = []
 
-    # Nó Central
-    nodes.append({
-        "id": "SWITCH_CENTRAL",
-        "label": "SWITCH PRINCIPAL",
-        "shape": "image",
-        "image": "https://img.icons8.com/fluency/96/switch.png",
-        "size": 50,
-        "font": {"color": "#ffffff", "size": 15, "face": "Segoe UI", "background": "rgba(0,0,0,0.6)"},
-        "level": 0,
-        "tipo": "switch"
-    })
+    # 1. Processar Switches
+    for sw in dados['switches']:
+        nodes.append({
+            "id": sw,
+            "label": sw.upper(),
+            "shape": "image",
+            "image": "https://img.icons8.com/fluency/96/switch.png",
+            "size": 60,
+            "font": {"color": "#ffffff", "size": 18, "face": "Segoe UI", "background": "rgba(0,0,0,0.8)", "bold": True},
+            "tipo": "switch"
+        })
 
-    for dispositivo in dados_limpos:
-        mac = dispositivo['MAC']
-        porta = dispositivo['Porta']
-        vlan = dispositivo['VLAN']
+    # 2. Processar Hosts
+    for host in dados['hosts']:
+        mac = host['MAC']
+        mac_curto = host['mac_maquina']
+        porta = host['porta']
+        sw = host['switch']
 
         nodes.append({
             "id": mac,
-            "label": f"{mac}", 
+            "label": mac_curto,
             "shape": "image",
-            "image": "https://img.icons8.com/fluency/96/workstation.png",
+            "image": "https://img.icons8.com/fluency/96/monitor.png",
             "size": 30,
-            "font": {"color": "#cbd5e1", "size": 12, "face": "monospace", "background": "rgba(0,0,0,0.5)"},
-            "level": 1,
-            "tipo": "pc",
+            "font": {"color": "#cbd5e1", "size": 12, "face": "monospace"},
+            "tipo": "host",
             "porta": porta,
-            "vlan": vlan
+            "mac_completo": mac,
+            "mac_maquina": mac_curto,
+            "switch_pai": sw
         })
 
         edges.append({
-            "from": "SWITCH_CENTRAL",
+            "from": sw,
             "to": mac,
             "label": f"P: {porta}",
-            "font": {"align": "horizontal", "color": "#94a3b8", "size": 11, "background": "#0f172a"},
+            "font": {"align": "horizontal", "color": "#94a3b8", "size": 11},
             "color": {"color": "#334155", "highlight": "#38bdf8"},
-            "arrows": "to"
+            "width": 2
         })
 
-    return json.dumps(nodes), json.dumps(edges)
+    # 3. Processar Trunks (Uplinks)
+    for ul in dados['uplinks']:
+        edges.append({
+            "from": ul['origem'],
+            "to": ul['destino'],
+            "label": f"[{ul['porta_origem']}] ⟷ [{ul['porta_destino']}]",
+            "font": {"align": "horizontal", "color": "#00e676", "size": 15, "background": "#000000", "bold": True},
+            "color": {"color": "#00e676", "highlight": "#00e5ff"},
+            "width": 6,
+            "length": 350
+        })
 
-def obter_template_html():
-    return """<!DOCTYPE html>
-<html lang="pt-PT">
+    # Transformar listas em JSON para o JavaScript ler
+    nodes_json = json.dumps(nodes, ensure_ascii=False)
+    edges_json = json.dumps(edges, ensure_ascii=False)
+
+    total_sw = len(dados['switches'])
+    total_hosts = len(dados['hosts'])
+    total_trunks = len(dados['uplinks'])
+
+    # Geração do HTML com formatação corrigida e f-string
+    html = f"""<!DOCTYPE html>
+<html lang="pt">
 <head>
     <meta charset="UTF-8">
-    <title>Painel de Monitorização - SEAP</title>
-    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Topologia de Rede – SEAP</title>
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <style>
-        /* Variáveis de Cores - Tema NOC/Cyber */
-        :root {
-            --bg-dark: #050b14;
-            --panel-bg: rgba(10, 15, 25, 0.85);
-            --accent: #00e5ff;
-            --accent-hover: #00b8cc;
-            --success: #00e676;
-            --text-main: #ffffff;
-            --text-muted: #8a9bb2;
-            --border-color: rgba(0, 229, 255, 0.15);
-            --glow: 0 0 15px rgba(0, 229, 255, 0.3);
-        }
-
-        body {
-            margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #02040a 0%, var(--bg-dark) 100%);
-            color: var(--text-main); display: flex; height: 100vh; overflow: hidden;
-        }
-
-        #loader {
-            position: fixed; inset: 0; background: #02040a; z-index: 9999;
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            color: var(--accent); font-family: monospace; font-size: 16px; letter-spacing: 2px;
-            transition: opacity 0.8s ease, visibility 0.8s;
-        }
-        .spinner {
-            width: 60px; height: 60px; border: 4px solid rgba(0, 229, 255, 0.1);
-            border-top-color: var(--accent); border-radius: 50%;
-            animation: spin 1s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite; margin-bottom: 20px;
-            box-shadow: var(--glow);
-        }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
-
-        #sidebar {
-            width: 380px; background: var(--panel-bg);
-            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            border-right: 1px solid var(--border-color);
-            padding: 35px 25px; display: flex; flex-direction: column;
-            box-shadow: 15px 0 40px rgba(0,0,0,0.8); z-index: 10;
-            overflow-y: auto;
-        }
-
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(0, 229, 255, 0.2); border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
-
-        #mapa-container { flex: 1; position: relative; }
-        
-        h2 {
-            margin-top: 0; font-size: 24px; font-weight: 300; text-transform: uppercase; letter-spacing: 1px;
-            border-bottom: 1px solid var(--border-color); padding-bottom: 20px;
-            display: flex; align-items: center; gap: 12px; text-shadow: 0 0 10px rgba(255,255,255,0.2);
-        }
-        
-        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 30px; }
-        .stat-card {
-            background: rgba(255,255,255,0.02); border: 1px solid var(--border-color);
-            padding: 20px 15px; border-radius: 12px; text-align: center;
-            transition: all 0.3s ease;
-        }
-        .stat-card:hover { transform: translateY(-5px); box-shadow: var(--glow); border-color: var(--accent); background: rgba(0, 229, 255, 0.05); }
-        .stat-number { font-size: 32px; font-weight: bold; color: var(--success); margin-bottom: 5px; text-shadow: 0 0 10px rgba(0, 230, 118, 0.4); }
-        .stat-number.blue { color: var(--accent); text-shadow: 0 0 10px rgba(0, 229, 255, 0.4); }
-        .stat-text { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; }
-
-        .search-box { display: flex; gap: 10px; margin-bottom: 25px; }
-        .search-box input {
-            flex: 1; padding: 12px 15px; border-radius: 8px; background: rgba(0,0,0,0.6);
-            border: 1px solid rgba(255,255,255,0.1); color: white; outline: none; transition: 0.3s;
-        }
-        .search-box input:focus { border-color: var(--accent); box-shadow: inset 0 0 5px rgba(0, 229, 255, 0.2); }
-        .search-box button {
-            background: rgba(0, 229, 255, 0.1); color: var(--accent); border: 1px solid var(--accent);
-            border-radius: 8px; padding: 0 18px; cursor: pointer; font-size: 16px; transition: 0.3s;
-        }
-        .search-box button:hover { background: var(--accent); color: #000; box-shadow: var(--glow); }
-        
-        .btn-exportar {
-            width: 100%; padding: 14px; margin-bottom: 25px;
-            background: linear-gradient(90deg, #00e676, #1de9b6); color: #000;
-            border: none; border-radius: 8px; font-weight: bold; font-size: 13px; text-transform: uppercase; letter-spacing: 1px;
-            cursor: pointer; transition: 0.3s; display: flex; justify-content: center; align-items: center; gap: 10px;
-        }
-        .btn-exportar:hover { box-shadow: 0 0 20px rgba(0, 230, 118, 0.5); transform: scale(1.02); }
-
-        .status-badge {
-            background: rgba(0, 229, 255, 0.1); color: var(--accent); 
-            border: 1px solid var(--accent); padding: 6px 14px;
-            border-radius: 4px; font-size: 11px; font-weight: bold;
-            display: inline-block; margin-bottom: 20px; letter-spacing: 1px;
-            box-shadow: var(--glow);
-        }
-        .campo-detalhe {
-            background: rgba(255, 255, 255, 0.02); padding: 15px; border-radius: 8px;
-            margin-bottom: 15px; border-left: 4px solid var(--accent);
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{
+            background: #050b14;
+            font-family: 'Segoe UI', sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            color: #fff;
+        }}
+        #toolbar {{
+            background: linear-gradient(90deg, #0a1a2b, #142433);
+            padding: 8px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #00e676;
+            flex-shrink: 0;
+            z-index: 10;
+            flex-wrap: wrap;
+            gap: 8px;
+        }}
+        #toolbar .logo {{
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 20px;
+            font-weight: 300;
+            letter-spacing: 1px;
+        }}
+        #toolbar .logo span {{ color: #00e676; font-weight: bold; }}
+        #toolbar .stats {{
+            display: flex;
+            gap: 12px;
+            font-size: 13px;
+            flex-wrap: wrap;
+        }}
+        #toolbar .stats .stat-item {{
+            background: rgba(255,255,255,0.06);
+            padding: 4px 14px;
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.08);
+        }}
+        #toolbar .stats .stat-item b {{ color: #00e676; }}
+        #toolbar .search {{
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            background: rgba(255,255,255,0.06);
+            border-radius: 25px;
+            padding: 4px 12px 4px 16px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }}
+        #toolbar .search input {{
+            background: transparent;
+            border: none;
+            color: #fff;
+            padding: 6px 0;
+            font-size: 13px;
+            outline: none;
+            width: 180px;
+        }}
+        #toolbar .search input::placeholder {{ color: #4a6a8a; }}
+        #toolbar .search button {{
+            background: #00e676;
+            color: #000;
+            border: none;
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 12px;
+            cursor: pointer;
             transition: 0.2s;
-        }
-        .campo-detalhe:hover { background: rgba(0, 229, 255, 0.05); }
-        .campo-detalhe.switch { border-left-color: var(--success); }
-        .rotulo { font-size: 10px; color: var(--text-muted); text-transform: uppercase; font-weight: bold; margin-bottom: 8px; letter-spacing: 1px;}
-        .valor { font-size: 18px; font-weight: 300; color: var(--text-main); }
-        
-        .btn-voltar {
-            background: none; border: 1px solid rgba(255,255,255,0.1); color: var(--text-main);
-            padding: 8px 15px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-bottom: 20px;
-            transition: 0.2s; display: inline-flex; align-items: center; gap: 5px;
-        }
-        .btn-voltar:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.3); }
-
-        .footer { margin-top: auto; text-align: center; color: var(--text-muted); font-size: 11px; padding-top: 25px; border-top: 1px solid rgba(255,255,255,0.05); letter-spacing: 1px; }
-        
-        #erro-mapa { display: none; position: absolute; top: 20px; right: 20px; background: rgba(220, 38, 38, 0.9); border: 1px solid #ff0000; color: #fff; padding: 15px 20px; border-radius: 8px; font-weight: bold; z-index: 1000; box-shadow: 0 0 20px rgba(220,38,38,0.5); }
+        }}
+        #toolbar .search button:hover {{ background: #00c853; }}
+        #toolbar .search .limpar {{
+            background: transparent;
+            color: #4a6a8a;
+            padding: 4px 8px;
+            font-size: 16px;
+            border: none;
+            cursor: pointer;
+        }}
+        #toolbar .search .limpar:hover {{ color: #fff; }}
+        #toolbar .actions {{
+            display: flex;
+            gap: 8px;
+        }}
+        #toolbar .actions button {{
+            background: #00e676;
+            color: #000;
+            border: none;
+            padding: 6px 16px;
+            border-radius: 25px;
+            font-weight: bold;
+            font-size: 12px;
+            cursor: pointer;
+            transition: 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }}
+        #toolbar .actions button:hover {{
+            background: #00c853;
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(0,230,118,0.4);
+        }}
+        #main {{
+            display: flex;
+            flex: 1;
+            min-height: 0;
+        }}
+        #mapa {{
+            flex: 1;
+            background: radial-gradient(circle at center, #0a1a2b, #020811);
+            min-height: 0;
+        }}
+        #painel {{
+            width: 320px;
+            background: rgba(10, 20, 30, 0.95);
+            border-left: 1px solid #00e67633;
+            padding: 20px;
+            overflow-y: auto;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            transition: 0.3s;
+        }}
+        #painel h3 {{
+            color: #00e676;
+            border-bottom: 1px solid #00e67633;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+            font-weight: 300;
+            letter-spacing: 1px;
+        }}
+        #painel .info {{
+            margin-bottom: 12px;
+            font-size: 14px;
+            line-height: 1.6;
+        }}
+        #painel .info .label {{
+            color: #8a9bb2;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }}
+        #painel .info .value {{
+            color: #fff;
+            font-weight: bold;
+            word-break: break-all;
+        }}
+        #painel .fechar {{
+            background: none;
+            border: 1px solid #4a6a8a;
+            color: #8a9bb2;
+            padding: 5px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 15px;
+            align-self: flex-end;
+            font-size: 12px;
+            transition: 0.2s;
+        }}
+        #painel .fechar:hover {{
+            background: #4a6a8a33;
+            color: #fff;
+        }}
+        #painel .vazio {{
+            color: #4a6a8a;
+            text-align: center;
+            margin-top: 40px;
+            font-size: 14px;
+        }}
+        .footer {{
+            background: #0a1a2b;
+            padding: 6px 25px;
+            text-align: right;
+            font-size: 11px;
+            color: #4a6a8a;
+            border-top: 1px solid #1a2a3b;
+            flex-shrink: 0;
+        }}
+        .vis-tooltip {{
+            background: rgba(10, 20, 30, 0.95) !important;
+            color: #fff !important;
+            border: 1px solid #00e676 !important;
+            border-radius: 8px !important;
+            padding: 12px 18px !important;
+            font-size: 13px !important;
+            font-family: 'Segoe UI', sans-serif !important;
+            max-width: 300px !important;
+        }}
+        #legenda {{
+            display: flex;
+            gap: 20px;
+            padding: 6px 25px;
+            background: rgba(10, 20, 30, 0.8);
+            border-top: 1px solid #1a2a3b;
+            flex-shrink: 0;
+            flex-wrap: wrap;
+            font-size: 12px;
+            color: #8a9bb2;
+            align-items: center;
+        }}
+        #legenda .item {{ display: flex; align-items: center; gap: 6px; }}
+        #legenda .cor {{ width: 16px; height: 4px; border-radius: 2px; }}
+        #legenda .cor.trunk {{ background: #00e676; height: 6px; }}
+        #legenda .cor.host {{ background: #334155; height: 2px; }}
+        #legenda img {{ width: 20px; height: 20px; filter: brightness(0.8); }}
+        .no-data {{ display: flex; align-items: center; justify-content: center; height: 100%; color: #4a6a8a; font-size: 18px; }}
     </style>
 </head>
 <body>
-    <div id="loader">
-        <div class="spinner"></div>
-        <div id="loader-text">A INICIALIZAR TOPOLOGIA DA REDE...</div>
-    </div>
-
-    <div id="sidebar">
-        <h2>📡 Monitor SEAP</h2>
-        <div id="conteudo-painel">
-            <div id="visao-geral">
-                <div class="search-box">
-                    <input type="text" id="busca-input" placeholder="Pesquisar MAC ou Porta..." onkeypress="verificarEnter(event)">
-                    <button onclick="buscarDispositivo()">⌕</button>
-                </div>
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-number">__TOTAL_MAQUINAS__</div>
-                        <div class="stat-text">Hosts Conectados</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number blue">1</div>
-                        <div class="stat-text">Switch Core</div>
-                    </div>
-                </div>
-
-                <button onclick="exportarParaCSV()" class="btn-exportar">
-                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/></svg>
-                    Exportar Relatório CSV
-                </button>
-
-                <p style="color: var(--text-muted); font-size: 13px; text-align: center; line-height: 1.6; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 8px;">
-                    Navegue pelo mapa clicando nos nós para inspecionar os detalhes físicos e lógicos.
-                </p>
-            </div>
+    <div id="toolbar">
+        <div class="logo"><span>🌐</span> SEAP <span>·</span> Topologia</div>
+        <div class="stats">
+            <div class="stat-item">🔌 <b>{total_sw}</b> Switches</div>
+            <div class="stat-item">💻 <b>{total_hosts}</b> Hosts</div>
+            <div class="stat-item">🔗 <b>{total_trunks}</b> Trunks</div>
         </div>
-        <div class="footer">SISTEMA AUTOMATIZADO V3.0<br>OPERACIONAL</div>
+        <div class="search">
+            <input type="text" id="pesquisaInput" placeholder="Buscar MAC ou porta..." />
+            <button onclick="buscar()">🔍</button>
+            <button class="limpar" onclick="limparBusca()">✕</button>
+        </div>
+        <div class="actions">
+            <button onclick="network.fit()">🎯 Centralizar</button>
+            <button onclick="exportarImagem()">📷 Exportar PNG</button>
+        </div>
     </div>
-    
-    <div id="mapa-container">
-        <div id="erro-mapa">⚠ Falha ao renderizar a topologia.</div>
-        <div id="rede-canvas" style="width: 100%; height: 100%;"></div>
+    <div id="main">
+        <div id="mapa"></div>
+        <div id="painel">
+            <h3>📋 Detalhes</h3>
+            <div id="conteudo-painel" class="vazio">Clique num nó para ver informações.</div>
+            <button class="fechar" onclick="document.getElementById('conteudo-painel').innerHTML = '<div class=\\"vazio\\">Clique num nó para ver informações.</div>';">✕ Fechar</button>
+        </div>
     </div>
+    <div id="legenda">
+        <div class="item"><img src="https://img.icons8.com/fluency/96/switch.png" style="width:20px;height:20px;"> Switch</div>
+        <div class="item"><img src="https://img.icons8.com/fluency/96/monitor.png" style="width:20px;height:20px;"> Host (MAC)</div>
+        <div class="item"><span class="cor trunk"></span> Trunk</div>
+        <div class="item"><span class="cor host"></span> Conexão host-switch</div>
+    </div>
+    <div class="footer">Clique num nó para detalhes · Passe o mouse para tooltip · Arraste para navegar</div>
 
-    <script type="text/javascript">
-        try {
-            const nodesData = __NODES_JSON__;
-            const edgesData = __EDGES_JSON__;
+    <script>
+        const nodesData = {nodes_json};
+        const edgesData = {edges_json};
 
+        console.log('Nós:', nodesData);
+        console.log('Arestas:', edgesData);
+
+        const container = document.getElementById('mapa');
+        const painelConteudo = document.getElementById('conteudo-painel');
+
+        if (nodesData.length === 0) {{
+            container.innerHTML = '<div class="no-data">Nenhum nó encontrado.</div>';
+        }} else {{
             const nodes = new vis.DataSet(nodesData);
             const edges = new vis.DataSet(edgesData);
-            const container = document.getElementById('rede-canvas');
-            
-            const options = {
-                layout: { hierarchical: { enabled: true, direction: 'UD', sortMethod: 'directed', levelSeparation: 250, nodeDistance: 220 } },
-                physics: { 
-                    hierarchicalRepulsion: { nodeDistance: 220, centralGravity: 0.0, springConstant: 0.05, damping: 0.09 }, 
-                    solver: 'hierarchicalRepulsion',
-                    stabilization: { iterations: 150 }
-                },
-                interaction: { hover: true, tooltipDelay: 200, zoomView: true }
-            };
 
-            const network = new vis.Network(container, { nodes, edges }, options);
-            const htmlVisaoGeral = document.getElementById('visao-geral').outerHTML;
+            const options = {{
+                layout: {{ hierarchical: false }},
+                physics: {{
+                    solver: 'forceAtlas2Based',
+                    forceAtlas2Based: {{
+                        gravitationalConstant: -120,
+                        centralGravity: 0.005,
+                        springLength: 200,
+                        springConstant: 0.06
+                    }},
+                    stabilization: {{ iterations: 300 }}
+                }},
+                interaction: {{
+                    dragNodes: false,
+                    zoomView: true,
+                    dragView: true,
+                    hover: true,
+                    tooltipDelay: 200
+                }},
+                nodes: {{ shape: 'image', size: 40 }},
+                edges: {{ smooth: {{ type: 'curvedCCW', roundness: 0.2 }} }}
+            }};
 
-            network.once("stabilizationIterationsDone", function() {
-                setTimeout(() => {
-                    const loader = document.getElementById('loader');
-                    loader.style.opacity = '0';
-                    setTimeout(() => { loader.style.visibility = 'hidden'; }, 800);
-                }, 500); 
-            });
+            const network = new vis.Network(container, {{ nodes, edges }}, options);
 
-            network.on("click", function (params) {
-                const painel = document.getElementById('conteudo-painel');
-                if (params.nodes.length > 0) {
-                    const idSelecionado = params.nodes[0];
-                    const dadosNo = nodes.get(idSelecionado);
-                    
-                    if (dadosNo.tipo === 'switch') {
-                        painel.innerHTML = `<button class="btn-voltar" onclick="voltarResumo()">← Voltar</button><br><span class="status-badge" style="color: var(--success); border-color: var(--success); background: rgba(0, 230, 118, 0.1);">🟢 SWITCH ONLINE</span><div class="campo-detalhe switch"><div class="rotulo">Equipamento Core</div><div class="valor">Switch Principal de Acesso</div></div><div class="campo-detalhe switch"><div class="rotulo">Status da Distribuição</div><div class="valor">Ativa / Estável</div></div>`;
-                    } else {
-                        painel.innerHTML = `<button class="btn-voltar" onclick="voltarResumo()">← Voltar</button><br><span class="status-badge">🔗 HOST CONECTADO</span><div class="campo-detalhe"><div class="rotulo">Endereço Físico (MAC)</div><div class="valor" style="font-family: monospace; color: var(--accent); font-size: 20px;">${dadosNo.id}</div></div><div class="campo-detalhe"><div class="rotulo">Porta Designada</div><div class="valor" style="font-weight: bold; font-size: 24px; color: #fff;">${dadosNo.porta}</div></div><div class="campo-detalhe"><div class="rotulo">Virtual LAN</div><div class="valor">VLAN ${dadosNo.vlan}</div></div>`;
-                    }
-                } else {
-                    voltarResumo();
-                }
-            });
+            network.once("stabilizationIterationsDone", function() {{
+                network.setOptions({{ physics: false }});
+                network.fit();
+            }});
+            setTimeout(() => network.fit(), 1000);
 
-            window.voltarResumo = function() { document.getElementById('conteudo-painel').innerHTML = htmlVisaoGeral; };
-            window.verificarEnter = function(e) { if (e.key === 'Enter') buscarDispositivo(); };
-            window.buscarDispositivo = function() {
-                const termo = document.getElementById('busca-input').value.trim().toUpperCase();
+            // ===== Painel =====
+            function mostrarDetalhes(nodeId) {{
+                const node = nodes.get(nodeId);
+                if (!node) {{
+                    painelConteudo.innerHTML = '<div class="vazio">Nó não encontrado.</div>';
+                    return;
+                }}
+                let html = '';
+                if (node.tipo === 'switch') {{
+                    html += `<div class="info"><div class="label">Equipamento</div><div class="value">🔌 Switch</div></div>`;
+                    html += `<div class="info"><div class="label">Nome</div><div class="value">${{node.id.toUpperCase()}}</div></div>`;
+                    const hostsConectados = nodesData.filter(n => n.switch_pai === node.id);
+                    html += `<div class="info"><div class="label">Hosts conectados</div><div class="value">${{hostsConectados.length}}</div></div>`;
+                }} else if (node.tipo === 'host') {{
+                    html += `<div class="info"><div class="label">Tipo</div><div class="value">💻 Host</div></div>`;
+                    html += `<div class="info"><div class="label">Identificador</div><div class="value">${{node.mac_maquina}}</div></div>`;
+                    html += `<div class="info"><div class="label">MAC completo</div><div class="value">${{node.mac_completo}}</div></div>`;
+                    html += `<div class="info"><div class="label">Switch</div><div class="value">${{node.switch_pai.toUpperCase()}}</div></div>`;
+                    html += `<div class="info"><div class="label">Porta</div><div class="value">${{node.porta}}</div></div>`;
+                }}
+                painelConteudo.innerHTML = html;
+            }}
+
+            network.on("click", function(params) {{
+                if (params.nodes.length > 0) {{
+                    mostrarDetalhes(params.nodes[0]);
+                }}
+            }});
+
+            // ===== Exportar PNG =====
+            window.exportarImagem = function() {{
+                const canvas = container.querySelector('canvas');
+                if (canvas) {{
+                    const link = document.createElement('a');
+                    link.download = 'topologia.png';
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                }} else {{
+                    alert('Aguarde a renderização completa.');
+                }}
+            }};
+
+            // ===== Busca =====
+            window.buscar = function() {{
+                const termo = document.getElementById('pesquisaInput').value.trim().toUpperCase();
                 if (!termo) return;
-                const noEncontrado = nodes.get().find(n => n.id.toUpperCase().includes(termo) || (n.porta && n.porta.toUpperCase() === termo));
-                if (noEncontrado) {
-                    network.focus(noEncontrado.id, { scale: 1.5, animation: { duration: 1000, easingFunction: 'easeInOutQuad' }});
-                    network.setSelection({ nodes: [noEncontrado.id] });
-                    network.emit('click', { nodes: [noEncontrado.id] });
-                } else {
-                    alert("⚠️ Host ou Porta não encontrada na varredura atual.");
-                }
-            };
+                let encontrado = null;
+                for (let node of nodes.get()) {{
+                    const macComp = (node.mac_completo || '').toUpperCase();
+                    const macCurto = (node.mac_maquina || '').toUpperCase();
+                    const porta = (node.porta || '').toUpperCase();
+                    const id = (node.id || '').toUpperCase();
+                    if (macComp.includes(termo) || macCurto.includes(termo) || porta.includes(termo) || id.includes(termo)) {{
+                        encontrado = node.id;
+                        break;
+                    }}
+                }}
+                if (encontrado) {{
+                    // CORREÇÃO: No vis.js, a cor da borda fica dentro da propriedade 'color'
+                    nodes.update([{{ id: encontrado, size: 55, borderWidth: 4, color: {{ border: '#ffeb3b' }} }}]);
+                    network.fit({{ nodes: [encontrado], animation: {{ duration: 800 }} }});
+                    mostrarDetalhes(encontrado);
+                    
+                    setTimeout(() => {{
+                        const node = nodes.get(encontrado);
+                        const sizeOriginal = node.tipo === 'switch' ? 60 : 30;
+                        // CORREÇÃO: Remover o destaque devolvendo a cor da borda ao normal
+                        nodes.update([{{ id: encontrado, size: sizeOriginal, borderWidth: 0, color: {{ border: 'transparent' }} }}]);
+                    }}, 4000);
+                }} else {{
+                    alert('Nenhum nó encontrado para: ' + termo);
+                }}
+            }};
 
-            window.exportarParaCSV = function() {
-                let csvContent = "MAC Address,Porta,VLAN,Equipamento\\n";
-                nodes.get().forEach(no => {
-                    if (no.tipo !== 'switch') { csvContent += `${no.id},${no.porta},${no.vlan},Host\\n`; }
-                });
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                const link = document.createElement("a");
-                const url = URL.createObjectURL(blob);
-                link.setAttribute("href", url);
-                link.setAttribute("download", "SEAP_Auditoria_Rede.csv");
-                link.style.visibility = 'hidden';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            };
+            window.limparBusca = function() {{
+                document.getElementById('pesquisaInput').value = '';
+                for (let node of nodes.get()) {{
+                    const sizeOrig = node.tipo === 'switch' ? 60 : 30;
+                    nodes.update([{{ id: node.id, size: sizeOrig, borderWidth: 0, color: {{ border: 'transparent' }} }}]);
+                }}
+                network.fit();
+            }};
 
-        } catch (erro) {
-            console.error("Erro Crítico Vis.js:", erro);
-            document.getElementById('erro-mapa').style.display = 'block';
-            document.getElementById('loader').style.display = 'none';
-        }
+            document.getElementById('pesquisaInput').addEventListener('keypress', function(e) {{
+                if (e.key === 'Enter') buscar();
+            }});
+        }}
     </script>
 </body>
 </html>"""
 
-def gerar_interface_grafica():
-    print("🎨 FRONTEND: A iniciar a aplicação e a solicitar dados ao Backend...")
-    dados_limpos = backend.extrair_dados_switch()
-    
-    if not dados_limpos:
-        print("⚠️ FRONTEND: Operação cancelada ou dados inválidos.")
-        return
-
-    print("🎨 FRONTEND: A estruturar dados para o mapa visual...")
-    nos_json, conexoes_json = preparar_dados_visjs(dados_limpos)
-    total_maquinas = len(dados_limpos)
-
-    html_cru = obter_template_html()
-    html_final = html_cru.replace("__NODES_JSON__", nos_json)
-    html_final = html_final.replace("__EDGES_JSON__", conexoes_json)
-    html_final = html_final.replace("__TOTAL_MAQUINAS__", str(total_maquinas))
-
-    nome_html = 'Mapa_da_Rede_SEAP.html'
-    caminho_completo = os.path.abspath(nome_html)
-    
-    with open(caminho_completo, 'w', encoding='utf-8') as f:
-        f.write(html_final)
+    caminho = os.path.abspath('topologia.html')
+    with open(caminho, 'w', encoding='utf-8') as f:
+        f.write(html)
         
-    print("✅ FRONTEND: Dashboard Profissional gerado com sucesso!")
-    print("🚀 A abrir o mapa no navegador...")
-    webbrowser.open(f'file://{caminho_completo}')
+    print(f"✅ Mapa gerado em {caminho}")
+    webbrowser.open(f'file://{caminho}')
 
-if __name__ == '__main__':
-    gerar_interface_grafica()
+if __name__ == "__main__":
+    gerar_html()
