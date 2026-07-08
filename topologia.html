@@ -5,387 +5,307 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Topologia de Rede – SEAP</title>
     <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            background: #050b14;
-            font-family: 'Segoe UI', sans-serif;
+            background-color: #020617; /* Fundo base escuro */
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(15, 23, 42, 1) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(15, 23, 42, 1) 0px, transparent 50%);
+            font-family: 'Inter', sans-serif;
             display: flex;
             flex-direction: column;
             height: 100vh;
             overflow: hidden;
-            color: #fff;
+            color: #f8fafc;
         }
+        
+        /* Toolbar Superior Estilo Glassmorphism */
         #toolbar {
-            background: linear-gradient(90deg, #0a1a2b, #142433);
-            padding: 8px 20px;
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            padding: 12px 24px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 2px solid #00e676;
-            flex-shrink: 0;
+            border-bottom: 1px solid rgba(16, 185, 129, 0.3);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
             z-index: 10;
-            flex-wrap: wrap;
-            gap: 8px;
         }
-        #toolbar .logo {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-size: 20px;
-            font-weight: 300;
-            letter-spacing: 1px;
-        }
-        #toolbar .logo span { color: #00e676; font-weight: bold; }
-        #toolbar .stats {
-            display: flex;
-            gap: 12px;
-            font-size: 13px;
-            flex-wrap: wrap;
-        }
-        #toolbar .stats .stat-item {
-            background: rgba(255,255,255,0.06);
-            padding: 4px 14px;
-            border-radius: 20px;
-            border: 1px solid rgba(255,255,255,0.08);
-        }
-        #toolbar .stats .stat-item b { color: #00e676; }
-        #toolbar .search {
-            display: flex;
-            gap: 6px;
-            align-items: center;
-            background: rgba(255,255,255,0.06);
-            border-radius: 25px;
-            padding: 4px 12px 4px 16px;
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-        #toolbar .search input {
-            background: transparent;
-            border: none;
-            color: #fff;
-            padding: 6px 0;
-            font-size: 13px;
-            outline: none;
-            width: 180px;
-        }
-        #toolbar .search input::placeholder { color: #4a6a8a; }
-        #toolbar .search button {
-            background: #00e676;
-            color: #000;
-            border: none;
-            padding: 4px 14px;
-            border-radius: 20px;
-            font-weight: bold;
-            font-size: 12px;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        #toolbar .search button:hover { background: #00c853; }
-        #toolbar .search .limpar {
-            background: transparent;
-            color: #4a6a8a;
+        .logo { font-size: 20px; font-weight: 600; letter-spacing: 0.5px; display: flex; align-items: center; gap: 10px; }
+        .logo span.highlight { color: #10b981; }
+        
+        .stats { display: flex; gap: 15px; font-size: 13px; font-weight: 600; color: #cbd5e1; }
+        .stat-item { background: rgba(255,255,255,0.05); padding: 6px 16px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); }
+        .stat-item b { color: #34d399; font-size: 14px; }
+        
+        /* Barra de Pesquisa Redesenhada */
+        .search-container { display: flex; align-items: center; gap: 8px; }
+        .search-box {
+            display: flex; align-items: center;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            border-radius: 8px;
             padding: 4px 8px;
-            font-size: 16px;
-            border: none;
-            cursor: pointer;
+            transition: all 0.3s ease;
         }
-        #toolbar .search .limpar:hover { color: #fff; }
-        #toolbar .actions {
-            display: flex;
-            gap: 8px;
+        .search-box:focus-within { border-color: #10b981; box-shadow: 0 0 10px rgba(16, 185, 129, 0.2); }
+        .search-box input { background: transparent; border: none; color: #fff; padding: 6px 8px; font-size: 13px; outline: none; width: 220px; font-family: 'Inter'; }
+        .search-box input::placeholder { color: #64748b; }
+        .btn-search { background: #10b981; color: #020617; border: none; padding: 6px 14px; border-radius: 6px; font-weight: 700; cursor: pointer; transition: 0.2s; }
+        .btn-search:hover { background: #34d399; transform: translateY(-1px); }
+        .btn-clear { background: transparent; color: #64748b; border: none; font-size: 18px; cursor: pointer; padding: 0 4px; }
+        .btn-clear:hover { color: #ef4444; }
+
+        .actions button {
+            background: rgba(255,255,255,0.05); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.1);
+            padding: 8px 16px; border-radius: 8px; font-weight: 600; font-size: 12px; cursor: pointer; transition: 0.3s;
         }
-        #toolbar .actions button {
-            background: #00e676;
-            color: #000;
-            border: none;
-            padding: 6px 16px;
-            border-radius: 25px;
-            font-weight: bold;
-            font-size: 12px;
-            cursor: pointer;
-            transition: 0.3s;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        #toolbar .actions button:hover {
-            background: #00c853;
-            transform: scale(1.05);
-            box-shadow: 0 0 20px rgba(0,230,118,0.4);
-        }
-        #main {
-            display: flex;
-            flex: 1;
-            min-height: 0;
-        }
-        #mapa {
-            flex: 1;
-            background: radial-gradient(circle at center, #0a1a2b, #020811);
-            min-height: 0;
-        }
+        .actions button:hover { background: rgba(255,255,255,0.1); color: #fff; }
+
+        /* Área do Mapa e Painel */
+        #main { position: relative; display: flex; flex: 1; overflow: hidden; }
+        #mapa { flex: 1; outline: none; cursor: grab; }
+        #mapa:active { cursor: grabbing; }
+        
+        /* Painel Flutuante (Modernizado) */
         #painel {
+            position: absolute;
+            right: -350px; /* Escondido por padrão */
+            top: 20px;
             width: 320px;
-            background: rgba(10, 20, 30, 0.95);
-            border-left: 1px solid #00e67633;
-            padding: 20px;
-            overflow-y: auto;
-            flex-shrink: 0;
-            display: flex;
-            flex-direction: column;
-            transition: 0.3s;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: -5px 10px 30px rgba(0,0,0,0.5);
+            transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex; flex-direction: column;
+            z-index: 100;
         }
-        #painel h3 {
-            color: #00e676;
-            border-bottom: 1px solid #00e67633;
-            padding-bottom: 10px;
-            margin-bottom: 15px;
-            font-weight: 300;
-            letter-spacing: 1px;
+        #painel.ativo { right: 20px; }
+        
+        #painel h3 { color: #34d399; font-size: 18px; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .info-row { margin-bottom: 14px; }
+        .info-label { color: #94a3b8; font-size: 11px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 4px; }
+        .info-value { color: #f8fafc; font-size: 14px; font-weight: 500; word-break: break-all; }
+        
+        .btn-fechar { background: rgba(255,255,255,0.05); color: #cbd5e1; border: 1px solid rgba(255,255,255,0.1); padding: 8px; border-radius: 6px; cursor: pointer; margin-top: 20px; width: 100%; transition: 0.2s; font-weight: 600; }
+        .btn-fechar:hover { background: rgba(239, 68, 68, 0.2); color: #f87171; border-color: rgba(239, 68, 68, 0.4); }
+
+        /* Rodapé e Legenda Transparente */
+        #legenda-container {
+            position: absolute; bottom: 20px; left: 20px;
+            background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(8px);
+            padding: 12px 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);
+            display: flex; gap: 20px; align-items: center;
+            font-size: 12px; color: #cbd5e1; z-index: 10;
         }
-        #painel .info {
-            margin-bottom: 12px;
-            font-size: 14px;
-            line-height: 1.6;
-        }
-        #painel .info .label {
-            color: #8a9bb2;
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        #painel .info .value {
-            color: #fff;
-            font-weight: bold;
-            word-break: break-all;
-        }
-        #painel .fechar {
-            background: none;
-            border: 1px solid #4a6a8a;
-            color: #8a9bb2;
-            padding: 5px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-top: 15px;
-            align-self: flex-end;
-            font-size: 12px;
-            transition: 0.2s;
-        }
-        #painel .fechar:hover {
-            background: #4a6a8a33;
-            color: #fff;
-        }
-        #painel .vazio {
-            color: #4a6a8a;
-            text-align: center;
-            margin-top: 40px;
-            font-size: 14px;
-        }
-        .footer {
-            background: #0a1a2b;
-            padding: 6px 25px;
-            text-align: right;
-            font-size: 11px;
-            color: #4a6a8a;
-            border-top: 1px solid #1a2a3b;
-            flex-shrink: 0;
-        }
+        .legenda-item { display: flex; align-items: center; gap: 8px; }
+        .linha-trunk { width: 24px; height: 4px; background: #10b981; border-radius: 2px; }
+        .linha-host { width: 24px; height: 2px; background: transparent; border-top: 2px dashed #475569; }
+        
         .vis-tooltip {
-            background: rgba(10, 20, 30, 0.95) !important;
-            color: #fff !important;
-            border: 1px solid #00e676 !important;
-            border-radius: 8px !important;
-            padding: 12px 18px !important;
-            font-size: 13px !important;
-            font-family: 'Segoe UI', sans-serif !important;
-            max-width: 300px !important;
+            background: rgba(2, 6, 23, 0.95) !important; color: #f8fafc !important;
+            border: 1px solid #10b981 !important; border-radius: 8px !important;
+            padding: 12px !important; font-size: 13px !important; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            font-family: 'Inter', sans-serif !important;
         }
-        #legenda {
-            display: flex;
-            gap: 20px;
-            padding: 6px 25px;
-            background: rgba(10, 20, 30, 0.8);
-            border-top: 1px solid #1a2a3b;
-            flex-shrink: 0;
-            flex-wrap: wrap;
-            font-size: 12px;
-            color: #8a9bb2;
-            align-items: center;
-        }
-        #legenda .item { display: flex; align-items: center; gap: 6px; }
-        #legenda .cor { width: 16px; height: 4px; border-radius: 2px; }
-        #legenda .cor.trunk { background: #00e676; height: 6px; }
-        #legenda .cor.host { background: #334155; height: 2px; }
-        #legenda img { width: 20px; height: 20px; filter: brightness(0.8); }
-        .no-data { display: flex; align-items: center; justify-content: center; height: 100%; color: #4a6a8a; font-size: 18px; }
     </style>
 </head>
 <body>
     <div id="toolbar">
-        <div class="logo"><span>🌐</span> SEAP <span>·</span> Topologia</div>
+        <div class="logo"><span class="highlight">🌐</span> SEAP Topologia</div>
         <div class="stats">
-            <div class="stat-item">🔌 <b>3</b> Switches</div>
-            <div class="stat-item">💻 <b>9</b> Hosts</div>
-            <div class="stat-item">🔗 <b>3</b> Trunks</div>
+            <div class="stat-item"><b>8</b> Switches</div>
+            <div class="stat-item"><b>47</b> Hosts</div>
+            <div class="stat-item"><b>6</b> Trunks</div>
         </div>
-        <div class="search">
-            <input type="text" id="pesquisaInput" placeholder="Buscar MAC ou porta..." />
-            <button onclick="buscar()">🔍</button>
-            <button class="limpar" onclick="limparBusca()">✕</button>
+        <div class="search-container">
+            <div class="search-box">
+                <input type="text" id="pesquisaInput" placeholder="Buscar MAC, Porta ou Nome..." />
+                <button class="btn-clear" onclick="limparBusca()">×</button>
+            </div>
+            <button class="btn-search" onclick="buscar()">Buscar</button>
         </div>
         <div class="actions">
-            <button onclick="network.fit()">🎯 Centralizar</button>
-            <button onclick="exportarImagem()">📷 Exportar PNG</button>
+            <button onclick="network.fit({ animation: { duration: 800, easingFunction: 'easeInOutQuad' } })">🎯 Ver Tudo</button>
+            <button onclick="exportarImagem()">📸 Exportar PNG</button>
         </div>
     </div>
+    
     <div id="main">
         <div id="mapa"></div>
+        
         <div id="painel">
-            <h3>📋 Detalhes</h3>
-            <div id="conteudo-painel" class="vazio">Clique num nó para ver informações.</div>
-            <button class="fechar" onclick="document.getElementById('conteudo-painel').innerHTML = '<div class=\"vazio\">Clique num nó para ver informações.</div>';">✕ Fechar</button>
+            <h3>📋 Detalhes do Nó</h3>
+            <div id="conteudo-painel"></div>
+            <button class="btn-fechar" onclick="fecharPainel()">Fechar Janela</button>
+        </div>
+        
+        <div id="legenda-container">
+            <div class="legenda-item"><img src="https://img.icons8.com/fluency/96/switch.png" width="18"> Switch</div>
+            <div class="legenda-item"><img src="https://img.icons8.com/fluency/96/monitor.png" width="18"> Host</div>
+            <div class="legenda-item"><div class="linha-trunk"></div> Trunk / Link Direto</div>
+            <div class="legenda-item"><div class="linha-host"></div> Porta de Acesso</div>
         </div>
     </div>
-    <div id="legenda">
-        <div class="item"><img src="https://img.icons8.com/fluency/96/switch.png" style="width:20px;height:20px;"> Switch</div>
-        <div class="item"><img src="https://img.icons8.com/fluency/96/monitor.png" style="width:20px;height:20px;"> Host (MAC)</div>
-        <div class="item"><span class="cor trunk"></span> Trunk</div>
-        <div class="item"><span class="cor host"></span> Conexão host-switch</div>
-    </div>
-    <div class="footer">Clique num nó para detalhes · Passe o mouse para tooltip · Arraste para navegar</div>
 
     <script>
-        const nodesData = [{"id": "1andar", "label": "1ANDAR", "shape": "image", "image": "https://img.icons8.com/fluency/96/switch.png", "size": 60, "font": {"color": "#ffffff", "size": 18, "face": "Segoe UI", "background": "rgba(0,0,0,0.8)", "bold": true}, "tipo": "switch"}, {"id": "2andar", "label": "2ANDAR", "shape": "image", "image": "https://img.icons8.com/fluency/96/switch.png", "size": 60, "font": {"color": "#ffffff", "size": 18, "face": "Segoe UI", "background": "rgba(0,0,0,0.8)", "bold": true}, "tipo": "switch"}, {"id": "terreo", "label": "TERREO", "shape": "image", "image": "https://img.icons8.com/fluency/96/switch.png", "size": 60, "font": {"color": "#ffffff", "size": 18, "face": "Segoe UI", "background": "rgba(0,0,0,0.8)", "bold": true}, "tipo": "switch"}, {"id": "001122331122", "label": "001122331122", "shape": "image", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 30, "font": {"color": "#cbd5e1", "size": 12, "face": "monospace"}, "tipo": "host", "porta": "0/0/1", "mac_completo": "001122331122", "mac_maquina": "001122331122", "switch_pai": "terreo"}, {"id": "001122331123", "label": "001122331123", "shape": "image", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 30, "font": {"color": "#cbd5e1", "size": 12, "face": "monospace"}, "tipo": "host", "porta": "0/0/2", "mac_completo": "001122331123", "mac_maquina": "001122331123", "switch_pai": "terreo"}, {"id": "001122331124", "label": "001122331124", "shape": "image", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 30, "font": {"color": "#cbd5e1", "size": 12, "face": "monospace"}, "tipo": "host", "porta": "2", "mac_completo": "001122331124", "mac_maquina": "001122331124", "switch_pai": "1andar"}, {"id": "001122331125", "label": "001122331125", "shape": "image", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 30, "font": {"color": "#cbd5e1", "size": 12, "face": "monospace"}, "tipo": "host", "porta": "3", "mac_completo": "001122331125", "mac_maquina": "001122331125", "switch_pai": "1andar"}, {"id": "001122331126", "label": "001122331126", "shape": "image", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 30, "font": {"color": "#cbd5e1", "size": 12, "face": "monospace"}, "tipo": "host", "porta": "4", "mac_completo": "001122331126", "mac_maquina": "001122331126", "switch_pai": "1andar"}, {"id": "001122331127", "label": "001122331127", "shape": "image", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 30, "font": {"color": "#cbd5e1", "size": 12, "face": "monospace"}, "tipo": "host", "porta": "5", "mac_completo": "001122331127", "mac_maquina": "001122331127", "switch_pai": "1andar"}, {"id": "001122331128", "label": "001122331128", "shape": "image", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 30, "font": {"color": "#cbd5e1", "size": 12, "face": "monospace"}, "tipo": "host", "porta": "eth1", "mac_completo": "001122331128", "mac_maquina": "001122331128", "switch_pai": "2andar"}, {"id": "001122331129", "label": "001122331129", "shape": "image", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 30, "font": {"color": "#cbd5e1", "size": 12, "face": "monospace"}, "tipo": "host", "porta": "eth2", "mac_completo": "001122331129", "mac_maquina": "001122331129", "switch_pai": "2andar"}, {"id": "001122331130", "label": "001122331130", "shape": "image", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 30, "font": {"color": "#cbd5e1", "size": 12, "face": "monospace"}, "tipo": "host", "porta": "eth3", "mac_completo": "001122331130", "mac_maquina": "001122331130", "switch_pai": "2andar"}];
-        const edgesData = [{"from": "terreo", "to": "001122331122", "label": "P: 0/0/1", "font": {"align": "horizontal", "color": "#94a3b8", "size": 11}, "color": {"color": "#334155", "highlight": "#38bdf8"}, "width": 2}, {"from": "terreo", "to": "001122331123", "label": "P: 0/0/2", "font": {"align": "horizontal", "color": "#94a3b8", "size": 11}, "color": {"color": "#334155", "highlight": "#38bdf8"}, "width": 2}, {"from": "1andar", "to": "001122331124", "label": "P: 2", "font": {"align": "horizontal", "color": "#94a3b8", "size": 11}, "color": {"color": "#334155", "highlight": "#38bdf8"}, "width": 2}, {"from": "1andar", "to": "001122331125", "label": "P: 3", "font": {"align": "horizontal", "color": "#94a3b8", "size": 11}, "color": {"color": "#334155", "highlight": "#38bdf8"}, "width": 2}, {"from": "1andar", "to": "001122331126", "label": "P: 4", "font": {"align": "horizontal", "color": "#94a3b8", "size": 11}, "color": {"color": "#334155", "highlight": "#38bdf8"}, "width": 2}, {"from": "1andar", "to": "001122331127", "label": "P: 5", "font": {"align": "horizontal", "color": "#94a3b8", "size": 11}, "color": {"color": "#334155", "highlight": "#38bdf8"}, "width": 2}, {"from": "2andar", "to": "001122331128", "label": "P: eth1", "font": {"align": "horizontal", "color": "#94a3b8", "size": 11}, "color": {"color": "#334155", "highlight": "#38bdf8"}, "width": 2}, {"from": "2andar", "to": "001122331129", "label": "P: eth2", "font": {"align": "horizontal", "color": "#94a3b8", "size": 11}, "color": {"color": "#334155", "highlight": "#38bdf8"}, "width": 2}, {"from": "2andar", "to": "001122331130", "label": "P: eth3", "font": {"align": "horizontal", "color": "#94a3b8", "size": 11}, "color": {"color": "#334155", "highlight": "#38bdf8"}, "width": 2}, {"from": "1andar", "to": "2andar", "label": "[6] ⟷ [eth4]", "font": {"align": "horizontal", "color": "#00e676", "size": 15, "background": "#000000", "bold": true}, "color": {"color": "#00e676", "highlight": "#00e5ff"}, "width": 6, "length": 350}, {"from": "1andar", "to": "terreo", "label": "[1] ⟷ [0/0/3]", "font": {"align": "horizontal", "color": "#00e676", "size": 15, "background": "#000000", "bold": true}, "color": {"color": "#00e676", "highlight": "#00e5ff"}, "width": 6, "length": 350}, {"from": "2andar", "to": "terreo", "label": "[eth4] ⟷ [0/0/3]", "font": {"align": "horizontal", "color": "#00e676", "size": 15, "background": "#000000", "bold": true}, "color": {"color": "#00e676", "highlight": "#00e5ff"}, "width": 6, "length": 350}];
-
-        console.log('Nós:', nodesData);
-        console.log('Arestas:', edgesData);
+        const nodesData = [{"id": "1andar", "label": "1ANDAR", "title": "<div style='padding:5px;'><b>🔌 Switch:</b> 1ANDAR</div>", "image": "https://img.icons8.com/fluency/96/switch.png", "size": 45, "tipo": "switch"}, {"id": "2andar", "label": "2ANDAR", "title": "<div style='padding:5px;'><b>🔌 Switch:</b> 2ANDAR</div>", "image": "https://img.icons8.com/fluency/96/switch.png", "size": 45, "tipo": "switch"}, {"id": "switch1", "label": "SWITCH1", "title": "<div style='padding:5px;'><b>🔌 Switch:</b> SWITCH1</div>", "image": "https://img.icons8.com/fluency/96/switch.png", "size": 45, "tipo": "switch"}, {"id": "switch2", "label": "SWITCH2", "title": "<div style='padding:5px;'><b>🔌 Switch:</b> SWITCH2</div>", "image": "https://img.icons8.com/fluency/96/switch.png", "size": 45, "tipo": "switch"}, {"id": "switch3", "label": "SWITCH3", "title": "<div style='padding:5px;'><b>🔌 Switch:</b> SWITCH3</div>", "image": "https://img.icons8.com/fluency/96/switch.png", "size": 45, "tipo": "switch"}, {"id": "switch4", "label": "SWITCH4", "title": "<div style='padding:5px;'><b>🔌 Switch:</b> SWITCH4</div>", "image": "https://img.icons8.com/fluency/96/switch.png", "size": 45, "tipo": "switch"}, {"id": "switch5", "label": "SWITCH5", "title": "<div style='padding:5px;'><b>🔌 Switch:</b> SWITCH5</div>", "image": "https://img.icons8.com/fluency/96/switch.png", "size": 45, "tipo": "switch"}, {"id": "terreo", "label": "TERREO", "title": "<div style='padding:5px;'><b>🔌 Switch:</b> TERREO</div>", "image": "https://img.icons8.com/fluency/96/switch.png", "size": 45, "tipo": "switch"}, {"id": "001122331122", "label": "001122331122", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122331122<br><b>MAC:</b> 001122331122<br><b>Porta:</b> 0/0/1</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "0/0/1", "mac_completo": "001122331122", "mac_maquina": "001122331122", "switch_pai": "terreo"}, {"id": "001122331123", "label": "001122331123", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122331123<br><b>MAC:</b> 001122331123<br><b>Porta:</b> 0/0/2</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "0/0/2", "mac_completo": "001122331123", "mac_maquina": "001122331123", "switch_pai": "terreo"}, {"id": "001122331124", "label": "001122331124", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122331124<br><b>MAC:</b> 001122331124<br><b>Porta:</b> 2</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "2", "mac_completo": "001122331124", "mac_maquina": "001122331124", "switch_pai": "1andar"}, {"id": "001122331125", "label": "001122331125", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122331125<br><b>MAC:</b> 001122331125<br><b>Porta:</b> 3</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "3", "mac_completo": "001122331125", "mac_maquina": "001122331125", "switch_pai": "1andar"}, {"id": "001122331126", "label": "001122331126", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122331126<br><b>MAC:</b> 001122331126<br><b>Porta:</b> 4</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "4", "mac_completo": "001122331126", "mac_maquina": "001122331126", "switch_pai": "1andar"}, {"id": "001122331127", "label": "001122331127", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122331127<br><b>MAC:</b> 001122331127<br><b>Porta:</b> 5</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "5", "mac_completo": "001122331127", "mac_maquina": "001122331127", "switch_pai": "1andar"}, {"id": "001122331128", "label": "001122331128", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122331128<br><b>MAC:</b> 001122331128<br><b>Porta:</b> eth1</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "eth1", "mac_completo": "001122331128", "mac_maquina": "001122331128", "switch_pai": "2andar"}, {"id": "001122331129", "label": "001122331129", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122331129<br><b>MAC:</b> 001122331129<br><b>Porta:</b> eth2</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "eth2", "mac_completo": "001122331129", "mac_maquina": "001122331129", "switch_pai": "2andar"}, {"id": "001122331130", "label": "001122331130", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122331130<br><b>MAC:</b> 001122331130<br><b>Porta:</b> eth3</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "eth3", "mac_completo": "001122331130", "mac_maquina": "001122331130", "switch_pai": "2andar"}, {"id": "001122334450", "label": "001122334450", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334450<br><b>MAC:</b> 001122334450<br><b>Porta:</b> 0/0/1</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "0/0/1", "mac_completo": "001122334450", "mac_maquina": "001122334450", "switch_pai": "switch1"}, {"id": "001122334451", "label": "001122334451", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334451<br><b>MAC:</b> 001122334451<br><b>Porta:</b> 0/0/2</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "0/0/2", "mac_completo": "001122334451", "mac_maquina": "001122334451", "switch_pai": "switch1"}, {"id": "001122334452", "label": "001122334452", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334452<br><b>MAC:</b> 001122334452<br><b>Porta:</b> 0/0/3</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "0/0/3", "mac_completo": "001122334452", "mac_maquina": "001122334452", "switch_pai": "switch1"}, {"id": "001122334453", "label": "001122334453", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334453<br><b>MAC:</b> 001122334453<br><b>Porta:</b> 0/0/4</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "0/0/4", "mac_completo": "001122334453", "mac_maquina": "001122334453", "switch_pai": "switch1"}, {"id": "001122334454", "label": "001122334454", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334454<br><b>MAC:</b> 001122334454<br><b>Porta:</b> 0/0/5</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "0/0/5", "mac_completo": "001122334454", "mac_maquina": "001122334454", "switch_pai": "switch1"}, {"id": "001122334455", "label": "001122334455", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334455<br><b>MAC:</b> 001122334455<br><b>Porta:</b> 0/0/6</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "0/0/6", "mac_completo": "001122334455", "mac_maquina": "001122334455", "switch_pai": "switch1"}, {"id": "001122334456", "label": "001122334456", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334456<br><b>MAC:</b> 001122334456<br><b>Porta:</b> 0/0/7</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "0/0/7", "mac_completo": "001122334456", "mac_maquina": "001122334456", "switch_pai": "switch1"}, {"id": "001122334457", "label": "001122334457", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334457<br><b>MAC:</b> 001122334457<br><b>Porta:</b> 0/0/8</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "0/0/8", "mac_completo": "001122334457", "mac_maquina": "001122334457", "switch_pai": "switch1"}, {"id": "001122334458", "label": "001122334458", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334458<br><b>MAC:</b> 001122334458<br><b>Porta:</b> 0/0/9</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "0/0/9", "mac_completo": "001122334458", "mac_maquina": "001122334458", "switch_pai": "switch1"}, {"id": "001122334460", "label": "001122334460", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334460<br><b>MAC:</b> 001122334460<br><b>Porta:</b> 1</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "1", "mac_completo": "001122334460", "mac_maquina": "001122334460", "switch_pai": "switch2"}, {"id": "001122334461", "label": "001122334461", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334461<br><b>MAC:</b> 001122334461<br><b>Porta:</b> 2</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "2", "mac_completo": "001122334461", "mac_maquina": "001122334461", "switch_pai": "switch2"}, {"id": "001122334462", "label": "001122334462", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334462<br><b>MAC:</b> 001122334462<br><b>Porta:</b> 3</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "3", "mac_completo": "001122334462", "mac_maquina": "001122334462", "switch_pai": "switch2"}, {"id": "001122334463", "label": "001122334463", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334463<br><b>MAC:</b> 001122334463<br><b>Porta:</b> 4</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "4", "mac_completo": "001122334463", "mac_maquina": "001122334463", "switch_pai": "switch2"}, {"id": "001122334464", "label": "001122334464", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334464<br><b>MAC:</b> 001122334464<br><b>Porta:</b> 5</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "5", "mac_completo": "001122334464", "mac_maquina": "001122334464", "switch_pai": "switch2"}, {"id": "001122334465", "label": "001122334465", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334465<br><b>MAC:</b> 001122334465<br><b>Porta:</b> 6</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "6", "mac_completo": "001122334465", "mac_maquina": "001122334465", "switch_pai": "switch2"}, {"id": "001122334466", "label": "001122334466", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334466<br><b>MAC:</b> 001122334466<br><b>Porta:</b> 7</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "7", "mac_completo": "001122334466", "mac_maquina": "001122334466", "switch_pai": "switch2"}, {"id": "001122334467", "label": "001122334467", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334467<br><b>MAC:</b> 001122334467<br><b>Porta:</b> 8</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "8", "mac_completo": "001122334467", "mac_maquina": "001122334467", "switch_pai": "switch2"}, {"id": "001122334468", "label": "001122334468", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334468<br><b>MAC:</b> 001122334468<br><b>Porta:</b> 9</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "9", "mac_completo": "001122334468", "mac_maquina": "001122334468", "switch_pai": "switch2"}, {"id": "001122334470", "label": "001122334470", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334470<br><b>MAC:</b> 001122334470<br><b>Porta:</b> eth1</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "eth1", "mac_completo": "001122334470", "mac_maquina": "001122334470", "switch_pai": "switch3"}, {"id": "001122334471", "label": "001122334471", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334471<br><b>MAC:</b> 001122334471<br><b>Porta:</b> eth2</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "eth2", "mac_completo": "001122334471", "mac_maquina": "001122334471", "switch_pai": "switch3"}, {"id": "001122334472", "label": "001122334472", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334472<br><b>MAC:</b> 001122334472<br><b>Porta:</b> eth3</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "eth3", "mac_completo": "001122334472", "mac_maquina": "001122334472", "switch_pai": "switch3"}, {"id": "001122334473", "label": "001122334473", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334473<br><b>MAC:</b> 001122334473<br><b>Porta:</b> eth4</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "eth4", "mac_completo": "001122334473", "mac_maquina": "001122334473", "switch_pai": "switch3"}, {"id": "001122334474", "label": "001122334474", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334474<br><b>MAC:</b> 001122334474<br><b>Porta:</b> eth5</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "eth5", "mac_completo": "001122334474", "mac_maquina": "001122334474", "switch_pai": "switch3"}, {"id": "001122334475", "label": "001122334475", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334475<br><b>MAC:</b> 001122334475<br><b>Porta:</b> eth6</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "eth6", "mac_completo": "001122334475", "mac_maquina": "001122334475", "switch_pai": "switch3"}, {"id": "001122334476", "label": "001122334476", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334476<br><b>MAC:</b> 001122334476<br><b>Porta:</b> eth7</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "eth7", "mac_completo": "001122334476", "mac_maquina": "001122334476", "switch_pai": "switch3"}, {"id": "001122334477", "label": "001122334477", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334477<br><b>MAC:</b> 001122334477<br><b>Porta:</b> eth8</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "eth8", "mac_completo": "001122334477", "mac_maquina": "001122334477", "switch_pai": "switch3"}, {"id": "001122334478", "label": "001122334478", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334478<br><b>MAC:</b> 001122334478<br><b>Porta:</b> eth9</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "eth9", "mac_completo": "001122334478", "mac_maquina": "001122334478", "switch_pai": "switch3"}, {"id": "001122334480", "label": "001122334480", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334480<br><b>MAC:</b> 001122334480<br><b>Porta:</b> 2/1/1</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "2/1/1", "mac_completo": "001122334480", "mac_maquina": "001122334480", "switch_pai": "switch4"}, {"id": "001122334481", "label": "001122334481", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334481<br><b>MAC:</b> 001122334481<br><b>Porta:</b> 2/1/2</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "2/1/2", "mac_completo": "001122334481", "mac_maquina": "001122334481", "switch_pai": "switch4"}, {"id": "001122334482", "label": "001122334482", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334482<br><b>MAC:</b> 001122334482<br><b>Porta:</b> 2/1/3</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "2/1/3", "mac_completo": "001122334482", "mac_maquina": "001122334482", "switch_pai": "switch4"}, {"id": "001122334483", "label": "001122334483", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334483<br><b>MAC:</b> 001122334483<br><b>Porta:</b> 2/1/4</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "2/1/4", "mac_completo": "001122334483", "mac_maquina": "001122334483", "switch_pai": "switch4"}, {"id": "001122334484", "label": "001122334484", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334484<br><b>MAC:</b> 001122334484<br><b>Porta:</b> 2/1/5</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "2/1/5", "mac_completo": "001122334484", "mac_maquina": "001122334484", "switch_pai": "switch4"}, {"id": "001122334485", "label": "001122334485", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334485<br><b>MAC:</b> 001122334485<br><b>Porta:</b> 2/1/6</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "2/1/6", "mac_completo": "001122334485", "mac_maquina": "001122334485", "switch_pai": "switch4"}, {"id": "001122334486", "label": "001122334486", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334486<br><b>MAC:</b> 001122334486<br><b>Porta:</b> 2/1/7</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "2/1/7", "mac_completo": "001122334486", "mac_maquina": "001122334486", "switch_pai": "switch4"}, {"id": "001122334487", "label": "001122334487", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334487<br><b>MAC:</b> 001122334487<br><b>Porta:</b> 2/1/8</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "2/1/8", "mac_completo": "001122334487", "mac_maquina": "001122334487", "switch_pai": "switch4"}, {"id": "001122334488", "label": "001122334488", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334488<br><b>MAC:</b> 001122334488<br><b>Porta:</b> 2/1/9</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "2/1/9", "mac_completo": "001122334488", "mac_maquina": "001122334488", "switch_pai": "switch4"}, {"id": "001122334490", "label": "001122334490", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334490<br><b>MAC:</b> 001122334490<br><b>Porta:</b> 08</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "08", "mac_completo": "001122334490", "mac_maquina": "001122334490", "switch_pai": "switch5"}, {"id": "001122334491", "label": "001122334491", "title": "<div style='padding:5px;'><b>💻 Host:</b> 001122334491<br><b>MAC:</b> 001122334491<br><b>Porta:</b> 09</div>", "image": "https://img.icons8.com/fluency/96/monitor.png", "size": 25, "tipo": "host", "porta": "09", "mac_completo": "001122334491", "mac_maquina": "001122334491", "switch_pai": "switch5"}];
+        const edgesData = [{"from": "terreo", "to": "001122331122", "label": "P: 0/0/1", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "terreo", "to": "001122331123", "label": "P: 0/0/2", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "1andar", "to": "001122331124", "label": "P: 2", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "1andar", "to": "001122331125", "label": "P: 3", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "1andar", "to": "001122331126", "label": "P: 4", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "1andar", "to": "001122331127", "label": "P: 5", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "2andar", "to": "001122331128", "label": "P: eth1", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "2andar", "to": "001122331129", "label": "P: eth2", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "2andar", "to": "001122331130", "label": "P: eth3", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch1", "to": "001122334450", "label": "P: 0/0/1", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch1", "to": "001122334451", "label": "P: 0/0/2", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch1", "to": "001122334452", "label": "P: 0/0/3", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch1", "to": "001122334453", "label": "P: 0/0/4", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch1", "to": "001122334454", "label": "P: 0/0/5", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch1", "to": "001122334455", "label": "P: 0/0/6", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch1", "to": "001122334456", "label": "P: 0/0/7", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch1", "to": "001122334457", "label": "P: 0/0/8", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch1", "to": "001122334458", "label": "P: 0/0/9", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch2", "to": "001122334460", "label": "P: 1", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch2", "to": "001122334461", "label": "P: 2", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch2", "to": "001122334462", "label": "P: 3", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch2", "to": "001122334463", "label": "P: 4", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch2", "to": "001122334464", "label": "P: 5", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch2", "to": "001122334465", "label": "P: 6", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch2", "to": "001122334466", "label": "P: 7", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch2", "to": "001122334467", "label": "P: 8", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch2", "to": "001122334468", "label": "P: 9", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch3", "to": "001122334470", "label": "P: eth1", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch3", "to": "001122334471", "label": "P: eth2", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch3", "to": "001122334472", "label": "P: eth3", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch3", "to": "001122334473", "label": "P: eth4", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch3", "to": "001122334474", "label": "P: eth5", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch3", "to": "001122334475", "label": "P: eth6", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch3", "to": "001122334476", "label": "P: eth7", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch3", "to": "001122334477", "label": "P: eth8", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch3", "to": "001122334478", "label": "P: eth9", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch4", "to": "001122334480", "label": "P: 2/1/1", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch4", "to": "001122334481", "label": "P: 2/1/2", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch4", "to": "001122334482", "label": "P: 2/1/3", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch4", "to": "001122334483", "label": "P: 2/1/4", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch4", "to": "001122334484", "label": "P: 2/1/5", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch4", "to": "001122334485", "label": "P: 2/1/6", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch4", "to": "001122334486", "label": "P: 2/1/7", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch4", "to": "001122334487", "label": "P: 2/1/8", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch4", "to": "001122334488", "label": "P: 2/1/9", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch5", "to": "001122334490", "label": "P: 08", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch5", "to": "001122334491", "label": "P: 09", "font": {"align": "middle", "color": "#94a3b8", "size": 10, "strokeWidth": 0}, "color": {"color": "#475569", "highlight": "#38bdf8"}, "width": 1.5, "length": 150, "dashes": [5, 5]}, {"from": "switch1", "to": "switch2", "label": "[0/0/24] ⟷ [24]", "font": {"align": "bottom", "color": "#10b981", "size": 13, "background": "rgba(15,23,42,0.8)", "bold": true}, "color": {"color": "#10b981", "highlight": "#34d399"}, "width": 4, "length": 350, "smooth": {"type": "curvedCW", "roundness": 0.2}}, {"from": "switch1", "to": "switch3", "label": "[0/0/23] ⟷ [eth23]", "font": {"align": "bottom", "color": "#10b981", "size": 13, "background": "rgba(15,23,42,0.8)", "bold": true}, "color": {"color": "#10b981", "highlight": "#34d399"}, "width": 4, "length": 350, "smooth": {"type": "curvedCW", "roundness": 0.2}}, {"from": "switch2", "to": "switch5", "label": "[23] ⟷ [23]", "font": {"align": "bottom", "color": "#10b981", "size": 13, "background": "rgba(15,23,42,0.8)", "bold": true}, "color": {"color": "#10b981", "highlight": "#34d399"}, "width": 4, "length": 350, "smooth": {"type": "curvedCW", "roundness": 0.2}}, {"from": "switch3", "to": "switch4", "label": "[eth24] ⟷ [2/1/24]", "font": {"align": "bottom", "color": "#10b981", "size": 13, "background": "rgba(15,23,42,0.8)", "bold": true}, "color": {"color": "#10b981", "highlight": "#34d399"}, "width": 4, "length": 350, "smooth": {"type": "curvedCW", "roundness": 0.2}}, {"from": "1andar", "to": "2andar", "label": "[6] ⟷ [eth4]", "font": {"align": "bottom", "color": "#10b981", "size": 13, "background": "rgba(15,23,42,0.8)", "bold": true}, "color": {"color": "#10b981", "highlight": "#34d399"}, "width": 4, "length": 350, "smooth": {"type": "curvedCW", "roundness": 0.2}}, {"from": "1andar", "to": "terreo", "label": "[1] ⟷ [0/0/3]", "font": {"align": "bottom", "color": "#10b981", "size": 13, "background": "rgba(15,23,42,0.8)", "bold": true}, "color": {"color": "#10b981", "highlight": "#34d399"}, "width": 4, "length": 350, "smooth": {"type": "curvedCW", "roundness": 0.2}}];
 
         const container = document.getElementById('mapa');
+        const painel = document.getElementById('painel');
         const painelConteudo = document.getElementById('conteudo-painel');
 
-        if (nodesData.length === 0) {
-            container.innerHTML = '<div class="no-data">Nenhum nó encontrado.</div>';
-        } else {
-            const nodes = new vis.DataSet(nodesData);
-            const edges = new vis.DataSet(edgesData);
+        // Configuração Global e Limpa dos Nós
+        const nodes = new vis.DataSet(nodesData.map(node => ({
+            ...node,
+            shape: 'image',
+            shapeProperties: { useBorderWithImage: true },
+            borderWidth: 2,
+            borderWidthSelected: 5,
+            color: {
+                border: 'transparent',
+                highlight: { border: '#38bdf8', background: 'transparent' },
+                hover: { border: '#10b981', background: 'transparent' }
+            },
+            font: { color: '#e2e8f0', face: 'Inter', size: 12, background: 'rgba(15,23,42,0.7)', strokeWidth: 0, multi: 'html' }
+        })));
 
-            const options = {
-                layout: { hierarchical: false },
-                physics: {
-                    solver: 'forceAtlas2Based',
-                    forceAtlas2Based: {
-                        gravitationalConstant: -120,
-                        centralGravity: 0.005,
-                        springLength: 200,
-                        springConstant: 0.06
-                    },
-                    stabilization: { iterations: 300 }
+        const edges = new vis.DataSet(edgesData);
+
+        const options = {
+            layout: { hierarchical: false },
+            physics: {
+                solver: 'barnesHut', // Melhor engine para topologias de rede
+                barnesHut: {
+                    gravitationalConstant: -4000,
+                    centralGravity: 0.1,
+                    springLength: 120,
+                    springConstant: 0.04,
+                    damping: 0.09,
+                    avoidOverlap: 0.1
                 },
-                interaction: {
-                    dragNodes: false,
-                    zoomView: true,
-                    dragView: true,
-                    hover: true,
-                    tooltipDelay: 200
-                },
-                nodes: { shape: 'image', size: 40 },
-                edges: { smooth: { type: 'curvedCCW', roundness: 0.2 } }
-            };
-
-            const network = new vis.Network(container, { nodes, edges }, options);
-
-            network.once("stabilizationIterationsDone", function() {
-                network.setOptions({ physics: false });
-                network.fit();
-            });
-            setTimeout(() => network.fit(), 1000);
-
-            // ===== Painel =====
-            function mostrarDetalhes(nodeId) {
-                const node = nodes.get(nodeId);
-                if (!node) {
-                    painelConteudo.innerHTML = '<div class="vazio">Nó não encontrado.</div>';
-                    return;
-                }
-                let html = '';
-                if (node.tipo === 'switch') {
-                    html += `<div class="info"><div class="label">Equipamento</div><div class="value">🔌 Switch</div></div>`;
-                    html += `<div class="info"><div class="label">Nome</div><div class="value">${node.id.toUpperCase()}</div></div>`;
-                    const hostsConectados = nodesData.filter(n => n.switch_pai === node.id);
-                    html += `<div class="info"><div class="label">Hosts conectados</div><div class="value">${hostsConectados.length}</div></div>`;
-                } else if (node.tipo === 'host') {
-                    html += `<div class="info"><div class="label">Tipo</div><div class="value">💻 Host</div></div>`;
-                    html += `<div class="info"><div class="label">Identificador</div><div class="value">${node.mac_maquina}</div></div>`;
-                    html += `<div class="info"><div class="label">MAC completo</div><div class="value">${node.mac_completo}</div></div>`;
-                    html += `<div class="info"><div class="label">Switch</div><div class="value">${node.switch_pai.toUpperCase()}</div></div>`;
-                    html += `<div class="info"><div class="label">Porta</div><div class="value">${node.porta}</div></div>`;
-                }
-                painelConteudo.innerHTML = html;
+                stabilization: { iterations: 200, fit: true }
+            },
+            interaction: {
+                hover: true, tooltipDelay: 150, zoomView: true, dragView: true,
+                navigationButtons: false, keyboard: false
             }
+        };
 
-            network.on("click", function(params) {
-                if (params.nodes.length > 0) {
-                    mostrarDetalhes(params.nodes[0]);
-                }
-            });
+        const network = new vis.Network(container, { nodes, edges }, options);
 
-            // ===== Exportar PNG =====
-            window.exportarImagem = function() {
-                const canvas = container.querySelector('canvas');
-                if (canvas) {
-                    const link = document.createElement('a');
-                    link.download = 'topologia.png';
-                    link.href = canvas.toDataURL('image/png');
-                    link.click();
-                } else {
-                    alert('Aguarde a renderização completa.');
-                }
-            };
+        // Desliga a física pesada após carregar para poupar CPU
+        network.once("stabilizationIterationsDone", function() {
+            network.setOptions({ physics: { enabled: false } });
+            network.fit();
+        });
 
-            // ===== Busca =====
-            window.buscar = function() {
-                const termo = document.getElementById('pesquisaInput').value.trim().toUpperCase();
-                if (!termo) return;
-                let encontrado = null;
-                for (let node of nodes.get()) {
-                    const macComp = (node.mac_completo || '').toUpperCase();
-                    const macCurto = (node.mac_maquina || '').toUpperCase();
-                    const porta = (node.porta || '').toUpperCase();
-                    const id = (node.id || '').toUpperCase();
-                    if (macComp.includes(termo) || macCurto.includes(termo) || porta.includes(termo) || id.includes(termo)) {
-                        encontrado = node.id;
-                        break;
-                    }
-                }
-                if (encontrado) {
-                    // CORREÇÃO: No vis.js, a cor da borda fica dentro da propriedade 'color'
-                    nodes.update([{ id: encontrado, size: 55, borderWidth: 4, color: { border: '#ffeb3b' } }]);
-                    network.fit({ nodes: [encontrado], animation: { duration: 800 } });
-                    mostrarDetalhes(encontrado);
-                    
-                    setTimeout(() => {
-                        const node = nodes.get(encontrado);
-                        const sizeOriginal = node.tipo === 'switch' ? 60 : 30;
-                        // CORREÇÃO: Remover o destaque devolvendo a cor da borda ao normal
-                        nodes.update([{ id: encontrado, size: sizeOriginal, borderWidth: 0, color: { border: 'transparent' } }]);
-                    }, 4000);
-                } else {
-                    alert('Nenhum nó encontrado para: ' + termo);
-                }
-            };
-
-            window.limparBusca = function() {
-                document.getElementById('pesquisaInput').value = '';
-                for (let node of nodes.get()) {
-                    const sizeOrig = node.tipo === 'switch' ? 60 : 30;
-                    nodes.update([{ id: node.id, size: sizeOrig, borderWidth: 0, color: { border: 'transparent' } }]);
-                }
-                network.fit();
-            };
-
-            document.getElementById('pesquisaInput').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') buscar();
-            });
+        // ===== Lógica do Painel e Cliques =====
+        function mostrarDetalhes(nodeId) {
+            const node = nodes.get(nodeId);
+            if (!node) return;
+            
+            let html = '';
+            if (node.tipo === 'switch') {
+                html += `<div class="info-row"><div class="info-label">Tipo de Equipamento</div><div class="info-value">🔌 Switch de Rede</div></div>`;
+                html += `<div class="info-row"><div class="info-label">Identificação</div><div class="info-value">${node.id.toUpperCase()}</div></div>`;
+                const hostsConectados = nodesData.filter(n => n.switch_pai === node.id).length;
+                html += `<div class="info-row"><div class="info-label">Hosts Mapeados</div><div class="info-value">${hostsConectados} dispositivos</div></div>`;
+            } else if (node.tipo === 'host') {
+                html += `<div class="info-row"><div class="info-label">Tipo de Equipamento</div><div class="info-value">💻 Host / Endpoint</div></div>`;
+                html += `<div class="info-row"><div class="info-label">MAC Resumido</div><div class="info-value">${node.mac_maquina}</div></div>`;
+                html += `<div class="info-row"><div class="info-label">Endereço MAC Completo</div><div class="info-value">${node.mac_completo}</div></div>`;
+                html += `<div class="info-row"><div class="info-label">Conectado ao Switch</div><div class="info-value">${node.switch_pai.toUpperCase()}</div></div>`;
+                html += `<div class="info-row"><div class="info-label">Na Porta</div><div class="info-value">${node.porta}</div></div>`;
+            }
+            
+            painelConteudo.innerHTML = html;
+            painel.classList.add('ativo');
         }
+
+        window.fecharPainel = function() {
+            painel.classList.remove('ativo');
+        };
+
+        // Abre o painel se clicar no nó, FECHA se clicar no fundo vazio
+        network.on("click", function(params) {
+            if (params.nodes.length > 0) {
+                mostrarDetalhes(params.nodes[0]);
+            } else {
+                fecharPainel();
+                network.unselectAll(); // Tira a seleção ao clicar fora
+            }
+        });
+
+        // ===== Busca Integrada Nativa (Corrigida) =====
+        window.buscar = function() {
+            const termo = document.getElementById('pesquisaInput').value.trim().toUpperCase();
+            if (!termo) return;
+            
+            let encontradoId = null;
+            for (let node of nodes.get()) {
+                const macComp = (node.mac_completo || '').toUpperCase();
+                const macCurto = (node.mac_maquina || '').toUpperCase();
+                const porta = (node.porta || '').toUpperCase();
+                const id = (node.id || '').toUpperCase();
+                
+                if (macComp.includes(termo) || macCurto.includes(termo) || porta.includes(termo) || id.includes(termo)) {
+                    encontradoId = node.id;
+                    break;
+                }
+            }
+            
+            if (encontradoId) {
+                // Usa a função nativa para focar e selecionar, que é muito mais bonita e não quebra os nós
+                network.selectNodes([encontradoId]);
+                network.focus(encontradoId, { 
+                    scale: 1.4, 
+                    animation: { duration: 1000, easingFunction: 'easeInOutQuad' } 
+                });
+                mostrarDetalhes(encontradoId);
+            } else {
+                alert('Nenhum nó encontrado para: ' + termo);
+            }
+        };
+
+        window.limparBusca = function() {
+            document.getElementById('pesquisaInput').value = '';
+            network.unselectAll();
+            network.fit({ animation: { duration: 800, easingFunction: 'easeInOutQuad' } });
+            fecharPainel();
+        };
+
+        document.getElementById('pesquisaInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') buscar();
+        });
+
+        // ===== Exportar Imagem (Fundo Escuro Nativo) =====
+        window.exportarImagem = function() {
+            const canvas = container.querySelector('canvas');
+            if (canvas) {
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = canvas.width;
+                tempCanvas.height = canvas.height;
+                const ctx = tempCanvas.getContext('2d');
+                
+                // Preenche com a mesma cor de fundo da página
+                ctx.fillStyle = '#020617'; 
+                ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+                ctx.drawImage(canvas, 0, 0);
+
+                const link = document.createElement('a');
+                link.download = 'Mapeamento_Rede_SEAP.png';
+                link.href = tempCanvas.toDataURL('image/png');
+                link.click();
+            }
+        };
     </script>
 </body>
 </html>
