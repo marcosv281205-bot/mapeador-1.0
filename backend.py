@@ -9,19 +9,25 @@ def mac_curto(mac):
         return ':'.join(partes[3:6]).upper()
     return mac
 
-def extrair_dados_rede():
+
+def extrair_arquivos_txt():
     root = tk.Tk()
     root.withdraw()
     root.attributes('-topmost', True)
-    print("⚙️ BACKEND: A aguardar seleção dos ficheiros .txt...")
+    print("BACKEND: A aguardar seleção dos ficheiros .txt...")
     caminhos = filedialog.askopenfilenames(
         title="Selecione os arquivos .txt dos switches",
         filetypes=[("Text files", "*.txt"), ("All files", "*.*")]
     )
     root.destroy()
+    return caminhos
+
+def extrair_dados_rede():
+    caminhos = extrair_arquivos_txt()
+
 
     if not caminhos:
-        print("⚠️ BACKEND: Nenhum ficheiro selecionado. Operação cancelada.")
+        print("BACKEND: Nenhum ficheiro selecionado. Operação cancelada.")
         return None
 
     # Estruturas de dados
@@ -152,10 +158,10 @@ def extrair_dados_rede():
             portas_usadas.add((sw2, p2))
 
     # Relatório Final no Terminal
-    print(f"\n⚙️ BACKEND: Topologia concluída!")
-    print(f"📡 Switches processados: {len(switches)}")
-    print(f"💻 Hosts finais identificados: {len(hosts)}")
-    print(f"🔗 Cabos diretos (Trunks) deduzidos: {len(uplinks)}")
+    print(f"\n BACKEND: Topologia concluída!")
+    print(f" Switches processados: {len(switches)}")
+    print(f" Hosts finais identificados: {len(hosts)}")
+    print(f" Cabos diretos (Trunks) deduzidos: {len(uplinks)}")
     for ul in uplinks:
         print(f"   [{ul['origem']}] Porta {ul['porta_origem']} <====> [{ul['destino']}] Porta {ul['porta_destino']}")
 

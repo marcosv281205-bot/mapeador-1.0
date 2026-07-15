@@ -1,41 +1,10 @@
-🌐 Automação de Mapeamento de Switch (SEAP)
+💻Sniffer de rede💻
 
-Este projeto é uma ferramenta de automação desenvolvida em Python para mapear conexões de switches de rede. Ele extrai informações de portas e MACs e gera um Dashboard interativo e visual automaticamente no navegador.
+Software de mapeamento e visualização de topologia de rede de computadores
 
-🚀 Funcionalidades
+O objetivo desse projeto é criar um rastrador de rede em que facilite a leitura e manutenção da mesma.
 
-Extração automática de dados (MAC, Porta e VLAN).
-
-Geração instantânea de uma topologia de rede gráfica (HTML/JS).
-
-Dashboard no estilo Dark Mode corporativo.
-
-Sistema de busca em tempo real por dispositivo (MAC) ou Porta física.
-
-Painel de estatísticas da rede.
-
-🛠️ Tecnologias Utilizadas
-
-Python 3 (Lógica de processamento e extração)
-
-Netmiko (Automação de conexões SSH em equipamentos de rede)
-
-Vis-network.js (Biblioteca gráfica para o mapa interativo)
-
-HTML / CSS (Interface visual)
-
-📦 Como utilizar
-
-Instale a biblioteca necessária no terminal:
-
-pip install netmiko
+Esse projeto nasce de uma ideia em que podemos ter controle total sobre todo o processo de gestão de uma rede de computadores
 
 
-Configure o IP e as credenciais do Switch no arquivo backend.py.
-
-Execute o programa através do arquivo principal:
-
-python frontend.py
-
-
-O navegador abrirá automaticamente exibindo o painel da rede!
+🔧Em desenvolvimento🔧
